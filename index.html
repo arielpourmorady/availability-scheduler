@@ -23,7 +23,7 @@
 
         .grid {
             display: grid;
-            grid-template-columns: 100px repeat(7, 1fr); /* First column for time slots */
+            grid-template-columns: 100px repeat(7, 1fr); /* 1 column for times, 7 for days */
             gap: 5px;
         }
 
@@ -31,4 +31,138 @@
             width: 100px;
             height: 50px;
             display: flex;
-           
+            align-items: center;
+            justify-content: center;
+            border: 1px solid #ccc;
+            background-color: #fff;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .grid div.header {
+            font-weight: bold;
+            background-color: #eee;
+            cursor: default;
+        }
+
+        .grid div.available {
+            background-color: #90ee90;
+        }
+
+        button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            background-color: #007bff;
+            color: white;
+            border-radius: 5px;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        .link-container {
+            margin-top: 20px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Mark Your Availability</h1>
+    <div class="grid" id="scheduleGrid">
+        <!-- Headers for days -->
+        <div class="header"></div>
+        <div class="header">Monday</div>
+        <div class="header">Tuesday</div>
+        <div class="header">Wednesday</div>
+        <div class="header">Thursday</div>
+        <div class="header">Friday</div>
+        <div class="header">Saturday</div>
+        <div class="header">Sunday</div>
+    </div>
+
+    <button onclick="generateShareLink()">Generate Shareable Link</button>
+
+    <div class="link-container" id="linkContainer"></div>
+
+    <script>
+        // Generate times in 15-minute increments
+        const times = [];
+        const startHour = 9; // Start at 9:00 AM
+        const endHour = 17; // End at 5:00 PM
+
+        for (let h = startHour; h <= endHour; h++) {
+            for (let m = 0; m < 60; m += 15) {
+                const hour = h % 12 === 0 ? 12 : h % 12;
+                const suffix = h >= 12 ? "PM" : "AM";
+                const minute = m === 0 ? "00" : m;
+                times.push(`${hour}:${minute} ${suffix}`);
+            }
+        }
+
+        const grid = document.getElementById("scheduleGrid");
+
+        // Populate the grid
+        times.forEach(time => {
+            // Add time slot in the first column
+            const timeHeader = document.createElement("div");
+            timeHeader.textContent = time;
+            timeHeader.className = "header";
+            grid.appendChild(timeHeader);
+
+            // Add availability cells for each day of the week
+            for (let i = 0; i < 7; i++) {
+                const cell = document.createElement("div");
+                cell.addEventListener("mousedown", () => toggleAvailability(cell));
+                cell.addEventListener("mouseenter", (e) => {
+                    if (isMouseDown) toggleAvailability(cell);
+                });
+                grid.appendChild(cell);
+            }
+        });
+
+        // Dragging flag
+        let isMouseDown = false;
+        document.addEventListener("mousedown", () => (isMouseDown = true));
+        document.addEventListener("mouseup", () => (isMouseDown = false));
+
+        function toggleAvailability(cell) {
+            cell.classList.toggle("available");
+        }
+
+        // Generate a shareable link
+        function generateShareLink() {
+            const gridCells = document.querySelectorAll(".grid div");
+            const data = [];
+
+            gridCells.forEach((cell, index) => {
+                if (!cell.classList.contains("header")) {
+                    data.push(cell.classList.contains("available") ? 1 : 0);
+                }
+            });
+
+            const encodedData = btoa(JSON.stringify(data));
+            const link = `${window.location.origin}${window.location.pathname}?data=${encodedData}`;
+
+            const linkContainer = document.getElementById("linkContainer");
+            linkContainer.innerHTML = `Share this link: <a href="${link}" target="_blank">${link}</a>`;
+        }
+
+        // Load data from URL if available
+        const params = new URLSearchParams(window.location.search);
+        if (params.has("data")) {
+            const data = JSON.parse(atob(params.get("data")));
+            const cells = document.querySelectorAll(".grid div");
+
+            data.forEach((available, index) => {
+                if (available === 1) {
+                    cells[index + 8].classList.add("available"); // Skip the header row
+                }
+            });
+        }
+    </script>
+</body>
+</html>
