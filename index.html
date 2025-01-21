@@ -6,7 +6,7 @@
     <title>Availability Scheduler</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
+            font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
             margin: 0;
             padding: 0;
             display: flex;
@@ -19,6 +19,31 @@
         h1 {
             margin: 20px 0;
             font-size: 24px;
+            font-weight: 400;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 90%;
+            max-width: 1000px;
+            margin-bottom: 10px;
+        }
+
+        .controls button {
+            padding: 8px 16px;
+            font-size: 14px;
+            cursor: pointer;
+            border: none;
+            background-color: #007bff;
+            color: white;
+            border-radius: 5px;
+            font-family: inherit;
+        }
+
+        .controls button:hover {
+            background-color: #0056b3;
         }
 
         .grid-container {
@@ -34,7 +59,7 @@
 
         .grid-header {
             text-align: center;
-            font-weight: bold;
+            font-weight: 600;
             padding: 10px;
             border-bottom: 1px solid #ddd;
             background-color: #f5f5f5;
@@ -45,11 +70,14 @@
             text-align: center;
             border-right: 1px solid #ddd;
             border-bottom: 1px solid #ddd;
+            height: 30px; /* Uniform height for all slots */
+            font-size: 12px;
         }
 
         .time-column {
             background-color: #fafafa;
             font-weight: bold;
+            font-size: 12px;
         }
 
         .time-slot:hover {
@@ -62,7 +90,7 @@
             box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.2);
         }
 
-        button {
+        button.generate-link {
             margin: 20px 0;
             padding: 10px 20px;
             font-size: 16px;
@@ -71,9 +99,10 @@
             background-color: #007bff;
             color: white;
             border-radius: 5px;
+            font-family: inherit;
         }
 
-        button:hover {
+        button.generate-link:hover {
             background-color: #0056b3;
         }
 
@@ -85,61 +114,87 @@
 </head>
 <body>
     <h1>Weekly Availability</h1>
+    <div class="controls">
+        <button onclick="changeWeek(-1)">Previous Week</button>
+        <h2 id="weekRange"></h2>
+        <button onclick="changeWeek(1)">Next Week</button>
+    </div>
     <div class="grid-container" id="scheduleGrid"></div>
-    <button onclick="generateShareLink()">Generate Shareable Link</button>
+    <button class="generate-link" onclick="generateShareLink()">Generate Shareable Link</button>
     <div class="link-container" id="linkContainer"></div>
 
     <script>
-        const times = [];
-        const startHour = 7; // Start at 7:00 AM
+        const startHour = 8; // Start at 8:00 AM
         const endHour = 18; // End at 6:00 PM
-
-        for (let h = startHour; h <= endHour; h++) {
-            for (let m = 0; m < 60; m += 30) {
-                const hour = h % 12 === 0 ? 12 : h % 12;
-                const suffix = h >= 12 ? "PM" : "AM";
-                const minute = m === 0 ? "00" : m;
-                times.push(`${hour}:${minute} ${suffix}`);
-            }
-        }
+        const timeIncrement = 15; // 15-minute intervals
+        let currentWeekOffset = 0; // Tracks the current week being displayed
 
         const grid = document.getElementById("scheduleGrid");
+        const weekRangeElement = document.getElementById("weekRange");
 
-        const currentDate = new Date();
-        const currentDay = currentDate.getDay();
-        const weekStart = new Date(currentDate);
-        weekStart.setDate(currentDate.getDate() - currentDay + 1);
-
-        const daysOfWeek = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-        const weekDates = daysOfWeek.map((_, index) => {
-            const date = new Date(weekStart);
-            date.setDate(weekStart.getDate() + index);
-            return `${daysOfWeek[index]} ${date.getMonth() + 1}/${date.getDate()}`;
-        });
-
-        // Headers
-        grid.innerHTML += `<div class="grid-header"></div>`;
-        weekDates.forEach(day => {
-            grid.innerHTML += `<div class="grid-header">${day}</div>`;
-        });
-
-        // Time slots
-        times.forEach(time => {
-            const timeCell = document.createElement("div");
-            timeCell.className = "time-slot time-column";
-            timeCell.textContent = time;
-            grid.appendChild(timeCell);
-
-            for (let i = 0; i < 7; i++) {
-                const cell = document.createElement("div");
-                cell.className = "time-slot";
-                cell.addEventListener("mousedown", () => toggleAvailability(cell));
-                cell.addEventListener("mouseenter", (e) => {
-                    if (isMouseDown) toggleAvailability(cell);
-                });
-                grid.appendChild(cell);
+        function getTimes() {
+            const times = [];
+            for (let h = startHour; h < endHour; h++) {
+                for (let m = 0; m < 60; m += timeIncrement) {
+                    const hour = h % 12 === 0 ? 12 : h % 12;
+                    const suffix = h >= 12 ? "PM" : "AM";
+                    const minute = m === 0 ? "00" : m;
+                    times.push(`${hour}:${minute} ${suffix}`);
+                }
             }
-        });
+            return times;
+        }
+
+        function getWeekDates() {
+            const currentDate = new Date();
+            currentDate.setDate(currentDate.getDate() + currentWeekOffset * 7);
+
+            const currentDay = currentDate.getDay();
+            const weekStart = new Date(currentDate);
+            weekStart.setDate(currentDate.getDate() - currentDay + 1);
+
+            const daysOfWeek = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+            return daysOfWeek.map((_, index) => {
+                const date = new Date(weekStart);
+                date.setDate(weekStart.getDate() + index);
+                return `${daysOfWeek[index]} ${date.getMonth() + 1}/${date.getDate()}`;
+            });
+        }
+
+        function renderGrid() {
+            const times = getTimes();
+            const weekDates = getWeekDates();
+
+            // Update week range header
+            weekRangeElement.textContent = `${weekDates[0]} - ${weekDates[6]}`;
+
+            // Clear existing grid
+            grid.innerHTML = "";
+
+            // Headers
+            grid.innerHTML += `<div class="grid-header"></div>`;
+            weekDates.forEach(day => {
+                grid.innerHTML += `<div class="grid-header">${day}</div>`;
+            });
+
+            // Time slots
+            times.forEach(time => {
+                const timeCell = document.createElement("div");
+                timeCell.className = "time-slot time-column";
+                timeCell.textContent = time;
+                grid.appendChild(timeCell);
+
+                for (let i = 0; i < 7; i++) {
+                    const cell = document.createElement("div");
+                    cell.className = "time-slot";
+                    cell.addEventListener("mousedown", () => toggleAvailability(cell));
+                    cell.addEventListener("mouseenter", (e) => {
+                        if (isMouseDown) toggleAvailability(cell);
+                    });
+                    grid.appendChild(cell);
+                }
+            });
+        }
 
         let isMouseDown = false;
         document.addEventListener("mousedown", () => (isMouseDown = true));
@@ -166,21 +221,13 @@
             linkContainer.innerHTML = `Share this link: <a href="${link}" target="_blank">${link}</a>`;
         }
 
-        const params = new URLSearchParams(window.location.search);
-        if (params.has("data")) {
-            const data = JSON.parse(atob(params.get("data")));
-            const cells = document.querySelectorAll(".grid-container .time-slot");
-
-            let dataIndex = 0;
-            cells.forEach(cell => {
-                if (!cell.classList.contains("time-column")) {
-                    if (data[dataIndex] === 1) {
-                        cell.classList.add("available");
-                    }
-                    dataIndex++;
-                }
-            });
+        function changeWeek(offset) {
+            currentWeekOffset += offset;
+            renderGrid();
         }
+
+        // Initial rendering
+        renderGrid();
     </script>
 </body>
 </html>
