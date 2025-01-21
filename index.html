@@ -70,7 +70,7 @@
             text-align: center;
             border-right: 1px solid #ddd;
             border-bottom: 1px solid #ddd;
-            height: 30px; /* Uniform height for all slots */
+            height: 20px; /* Thinner blocks for more times to fit */
             font-size: 12px;
         }
 
@@ -78,6 +78,11 @@
             background-color: #fafafa;
             font-weight: bold;
             font-size: 12px;
+        }
+
+        .time-slot.hour-label {
+            font-weight: bold;
+            font-size: 14px;
         }
 
         .time-slot:hover {
@@ -128,6 +133,7 @@
         const endHour = 18; // End at 6:00 PM
         const timeIncrement = 15; // 15-minute intervals
         let currentWeekOffset = 0; // Tracks the current week being displayed
+        const availability = {}; // To store availability for multiple weeks
 
         const grid = document.getElementById("scheduleGrid");
         const weekRangeElement = document.getElementById("weekRange");
@@ -139,7 +145,8 @@
                     const hour = h % 12 === 0 ? 12 : h % 12;
                     const suffix = h >= 12 ? "PM" : "AM";
                     const minute = m === 0 ? "00" : m;
-                    times.push(`${hour}:${minute} ${suffix}`);
+                    const label = m === 0 ? `${hour}:00 ${suffix}` : ""; // Show only on the hour
+                    times.push({ time: `${hour}:${minute} ${suffix}`, label });
                 }
             }
             return times;
@@ -168,6 +175,9 @@
             // Update week range header
             weekRangeElement.textContent = `${weekDates[0]} - ${weekDates[6]}`;
 
+            // Save current week's availability if needed
+            saveWeekData();
+
             // Clear existing grid
             grid.innerHTML = "";
 
@@ -178,18 +188,21 @@
             });
 
             // Time slots
-            times.forEach(time => {
+            times.forEach(({ time, label }) => {
                 const timeCell = document.createElement("div");
-                timeCell.className = "time-slot time-column";
-                timeCell.textContent = time;
+                timeCell.className = `time-slot time-column ${label ? "hour-label" : ""}`;
+                timeCell.textContent = label;
                 grid.appendChild(timeCell);
 
                 for (let i = 0; i < 7; i++) {
                     const cell = document.createElement("div");
                     cell.className = "time-slot";
-                    cell.addEventListener("mousedown", () => toggleAvailability(cell));
+                    if (availability[currentWeekOffset]?.[time]?.[i]) {
+                        cell.classList.add("available");
+                    }
+                    cell.addEventListener("mousedown", () => toggleAvailability(cell, time, i));
                     cell.addEventListener("mouseenter", (e) => {
-                        if (isMouseDown) toggleAvailability(cell);
+                        if (isMouseDown) toggleAvailability(cell, time, i);
                     });
                     grid.appendChild(cell);
                 }
@@ -200,21 +213,33 @@
         document.addEventListener("mousedown", () => (isMouseDown = true));
         document.addEventListener("mouseup", () => (isMouseDown = false));
 
-        function toggleAvailability(cell) {
+        function toggleAvailability(cell, time, dayIndex) {
             cell.classList.toggle("available");
+            availability[currentWeekOffset] = availability[currentWeekOffset] || {};
+            availability[currentWeekOffset][time] = availability[currentWeekOffset][time] || [];
+            availability[currentWeekOffset][time][dayIndex] = cell.classList.contains("available");
         }
 
-        function generateShareLink() {
+        function saveWeekData() {
+            const weekData = {};
             const cells = document.querySelectorAll(".grid-container .time-slot");
-            const data = [];
+            const times = getTimes();
 
-            cells.forEach(cell => {
-                if (!cell.classList.contains("time-column")) {
-                    data.push(cell.classList.contains("available") ? 1 : 0);
+            cells.forEach((cell, index) => {
+                if (index % 8 !== 0) {
+                    const timeIndex = Math.floor(index / 8) % times.length;
+                    const dayIndex = (index % 8) - 1;
+                    const time = times[timeIndex].time;
+                    weekData[time] = weekData[time] || [];
+                    weekData[time][dayIndex] = cell.classList.contains("available");
                 }
             });
 
-            const encodedData = btoa(JSON.stringify(data));
+            availability[currentWeekOffset] = weekData;
+        }
+
+        function generateShareLink() {
+            const encodedData = btoa(JSON.stringify(availability));
             const link = `${window.location.origin}${window.location.pathname}?data=${encodedData}`;
 
             const linkContainer = document.getElementById("linkContainer");
@@ -230,4 +255,3 @@
         renderGrid();
     </script>
 </body>
-</html>
