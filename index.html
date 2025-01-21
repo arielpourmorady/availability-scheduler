@@ -85,8 +85,23 @@
 
         <!-- Time slots -->
         <script>
-            const times = ["9:00 AM", "10:00 AM", "11:00 AM", "12:00 PM", "1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM"];
+            // Updated times array with 15-minute increments
+            const times = [];
+            const startHour = 9; // Start at 9:00 AM
+            const endHour = 5; // End at 5:00 PM
+
+            // Generate times in 15-minute intervals
+            for (let h = startHour; h <= endHour; h++) {
+                for (let m = 0; m < 60; m += 15) {
+                    const hour = h % 12 === 0 ? 12 : h % 12;
+                    const suffix = h >= 12 ? "PM" : "AM";
+                    const minute = m === 0 ? "00" : m;
+                    times.push(`${hour}:${minute < 10 ? '0' + minute : minute} ${suffix}`);
+                }
+            }
+
             const grid = document.getElementById("scheduleGrid");
+            let isMouseDown = false;
             
             times.forEach(time => {
                 const timeHeader = document.createElement("div");
@@ -96,12 +111,25 @@
 
                 for (let i = 0; i < 7; i++) {
                     const cell = document.createElement("div");
-                    cell.addEventListener("click", () => {
-                        cell.classList.toggle("available");
+                    cell.addEventListener("mousedown", () => {
+                        isMouseDown = true;
+                        toggleAvailability(cell);
+                    });
+                    cell.addEventListener("mouseenter", () => {
+                        if (isMouseDown) {
+                            toggleAvailability(cell);
+                        }
+                    });
+                    cell.addEventListener("mouseup", () => {
+                        isMouseDown = false;
                     });
                     grid.appendChild(cell);
                 }
             });
+
+            function toggleAvailability(cell) {
+                cell.classList.toggle("available");
+            }
         </script>
     </div>
 
